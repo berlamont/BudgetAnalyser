@@ -24,6 +24,8 @@
                 <ResourceDictionary Source="UI/Assets/CoolImage.xaml" />
                 <ResourceDictionary Source="UI/Assets/NewFileImage.xaml" />
                 <ResourceDictionary Source="UI/Assets/SaveImage.xaml" />
+                <ResourceDictionary Source="UI/Assets/LockClosedImage.xaml" />
+                <ResourceDictionary Source="UI/Assets/LockOpenImage.xaml" />
                 
                 <ResourceDictionary Source="UI/Style/Buttons.xaml" />
 
@@ -44,6 +46,7 @@
                 <ResourceDictionary Source="UI/Assets/DateFilterImage.xaml" />
                 <ResourceDictionary Source="UI/Assets/OctWarningImage.xaml" />
                 <ResourceDictionary Source="UI/Assets/BooksImage.xaml" />
+                <ResourceDictionary Source="UI/Assets/MobileImage.xaml" />
 
                 <ResourceDictionary Source="UI/DataTemplateDictionary.xaml" />
             </ResourceDictionary.MergedDictionaries>

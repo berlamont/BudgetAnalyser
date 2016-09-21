@@ -21,9 +21,19 @@ namespace BudgetAnalyser.Engine.Widgets
         protected const string DesignedForOneMonthOnly = "Reduce the date range to one month to enable this widget.";
 
         /// <summary>
-        ///     A constant for the standard widget style
+        ///     A constant for the standard widget style. (Blue)
         /// </summary>
         protected const string WidgetStandardStyle = "WidgetStandardStyle";
+
+        /// <summary>
+        ///     A constant for an alternative standard widget style. (Green)
+        /// </summary>
+        protected const string WidgetStandardStyle2 = "WidgetStandardStyle2";
+
+        /// <summary>
+        ///     A constant for an alternative standard widget style. (Purple)
+        /// </summary>
+        protected const string WidgetStandardStyle3 = "WidgetStandardStyle3";
 
         /// <summary>
         ///     A constant for the warning widget style
@@ -59,7 +69,23 @@ namespace BudgetAnalyser.Engine.Widgets
             // ReSharper disable once DoNotCallOverridableMethodsInConstructor - ok here, simple bool property with straightforward usage.
             Enabled = true;
             Sequence = 99;
+            RecommendedTimeIntervalUpdate = 30.Seconds();  // TODO - Temporary work around until message refresh issues are resolved.
         }
+
+        /// <summary>
+        ///     Occurs when the colour style has changed.
+        /// </summary>
+        public event EventHandler ColourStyleChanged;
+
+        /// <summary>
+        ///     Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
+        ///     Occurs when the widget style has changed.
+        /// </summary>
+        public event EventHandler WidgetStyleChanged;
 
         /// <summary>
         ///     Gets or sets the grouping category.
@@ -124,6 +150,8 @@ namespace BudgetAnalyser.Engine.Widgets
             }
         }
 
+        private bool clickableWhenEnabled;
+
         /// <summary>
         ///     Gets or sets a value indicating whether this <see cref="Widget" /> is enabled, showing data, and clickable.
         /// </summary>
@@ -134,6 +162,14 @@ namespace BudgetAnalyser.Engine.Widgets
             {
                 this.doNotUseEnabled = value;
                 OnPropertyChanged();
+                if (this.doNotUseEnabled == false && Clickable)
+                {
+                    this.clickableWhenEnabled = true;
+                    Clickable = false;
+                } else if (this.doNotUseEnabled == true && !Clickable && this.clickableWhenEnabled)
+                {
+                    Clickable = true;
+                }
             }
         }
 
@@ -250,24 +286,9 @@ namespace BudgetAnalyser.Engine.Widgets
         }
 
         /// <summary>
-        ///     Occurs when a property value changes.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        /// <summary>
-        ///     Occurs when the colour style has changed.
-        /// </summary>
-        public event EventHandler ColourStyleChanged;
-
-        /// <summary>
         ///     Updates the widget with new input.
         /// </summary>
         public abstract void Update(params object[] input);
-
-        /// <summary>
-        ///     Occurs when the widget style has changed.
-        /// </summary>
-        public event EventHandler WidgetStyleChanged;
 
         /// <summary>
         ///     Called when a property has changed.
@@ -276,7 +297,7 @@ namespace BudgetAnalyser.Engine.Widgets
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
@@ -298,9 +319,9 @@ namespace BudgetAnalyser.Engine.Widgets
             }
 
             int index = 0, nullCount = 0;
-            foreach (Type dependencyType in Dependencies)
+            foreach (var dependencyType in Dependencies)
             {
-                object dependencyInstance = input[index++];
+                var dependencyInstance = input[index++];
                 if (dependencyInstance == null)
                 {
                     // Allow this to continue, because nulls are valid when the dependency isnt available yet.

@@ -61,11 +61,6 @@ namespace BudgetAnalyser.Engine.Widgets
         }
 
         /// <summary>
-        ///     Gets or sets the start payment date.
-        /// </summary>
-        public DateTime StartPaymentDate { get; set; }
-
-        /// <summary>
         ///     Gets or sets a unique identifier for the widget. This is required for persistence purposes.
         /// </summary>
         public string Id
@@ -77,6 +72,11 @@ namespace BudgetAnalyser.Engine.Widgets
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        ///     Gets or sets the start payment date.
+        /// </summary>
+        public DateTime StartPaymentDate { get; set; }
 
         /// <summary>
         ///     Gets the type of the widget. Optionally allows the implementation to override the widget type description used in
@@ -133,7 +133,7 @@ namespace BudgetAnalyser.Engine.Widgets
             }
 
             this.diagLogger.LogInfo(l => l.Format("{0} Calculating Payment Plan for {1}. From {2} to {3}", WidgetType.Name, Id, this.filter.BeginDate, this.filter.EndDate));
-            PaymentDate currentDate = CalculateStartDate(StartPaymentDate, this.filter.BeginDate.Value);
+            var currentDate = CalculateStartDate(StartPaymentDate, this.filter.BeginDate.Value);
             var content = new StringBuilder();
             // Ignore start date in filter and force it to be one month prior to end date in filter.
             var currentMonthTally = new NextOccurance

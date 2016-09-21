@@ -23,6 +23,11 @@ namespace BudgetAnalyser.Engine
         }
 
         /// <summary>
+        ///     Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
         ///     The earliest date to include in filtered data when this criteria is applied. This is inclusive of the date.
         /// </summary>
         public DateTime? BeginDate
@@ -119,16 +124,11 @@ namespace BudgetAnalyser.Engine
         }
 
         /// <summary>
-        ///     Occurs when a property value changes.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        /// <summary>
         ///     Raise the property change event.
         /// </summary>
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 

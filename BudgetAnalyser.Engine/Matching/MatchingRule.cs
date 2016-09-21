@@ -38,8 +38,7 @@ namespace BudgetAnalyser.Engine.Matching
         /// </summary>
         /// <param name="bucketRepository">The bucket repository.</param>
         /// <exception cref="System.ArgumentNullException"></exception>
-        [SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors",
-            Justification = "Reviewed, ok here")]
+        [SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors", Justification = "Reviewed, ok here")]
         public MatchingRule([NotNull] IBudgetBucketRepository bucketRepository)
         {
             if (bucketRepository == null)
@@ -52,6 +51,11 @@ namespace BudgetAnalyser.Engine.Matching
             Created = DateTime.Now;
             And = true;
         }
+
+        /// <summary>
+        ///     Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
 
         /// <summary>
         ///     Gets or sets the amount criteria.
@@ -240,11 +244,6 @@ namespace BudgetAnalyser.Engine.Matching
         }
 
         /// <summary>
-        ///     Occurs when a property value changes.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        /// <summary>
         ///     Determines whether the specified <see cref="System.Object" />, is equal to this instance.
         ///     Delegates to <see cref="Equals(MatchingRule)" />.
         /// </summary>
@@ -408,7 +407,7 @@ namespace BudgetAnalyser.Engine.Matching
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }

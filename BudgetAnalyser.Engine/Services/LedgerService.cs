@@ -16,13 +16,13 @@ namespace BudgetAnalyser.Engine.Services
     {
         private readonly IAccountTypeRepository accountTypeRepository;
         private readonly ILedgerBucketFactory ledgerBucketFactory;
-        private readonly MonitorableDependencies monitorableDependencies;
         private readonly ILedgerBookRepository ledgerRepository;
+        private readonly MonitorableDependencies monitorableDependencies;
 
         public LedgerService(
             [NotNull] ILedgerBookRepository ledgerRepository,
             [NotNull] IAccountTypeRepository accountTypeRepository,
-            [NotNull] ILedgerBucketFactory ledgerBucketFactory, 
+            [NotNull] ILedgerBucketFactory ledgerBucketFactory,
             [NotNull] MonitorableDependencies monitorableDependencies)
         {
             if (ledgerRepository == null)
@@ -54,7 +54,10 @@ namespace BudgetAnalyser.Engine.Services
         public event EventHandler<AdditionalInformationRequestedEventArgs> Saving;
         public event EventHandler<ValidatingEventArgs> Validating;
 
+        public ApplicationDataType DataType => ApplicationDataType.Ledger;
+
         public LedgerBook LedgerBook { get; private set; }
+        public int LoadSequence => 50;
 
         public void MoveLedgerToAccount(LedgerBucket ledger, Account storedInAccount)
         {
@@ -91,7 +94,7 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentNullException(nameof(storeInThisAccount));
             }
 
-            LedgerBucket newLedger = this.ledgerBucketFactory.Build(bucket.Code, storeInThisAccount);
+            var newLedger = this.ledgerBucketFactory.Build(bucket.Code, storeInThisAccount);
             return LedgerBook.AddLedger(newLedger);
         }
 
@@ -99,9 +102,6 @@ namespace BudgetAnalyser.Engine.Services
         {
             return this.accountTypeRepository.ListCurrentlyUsedAccountTypes();
         }
-
-        public ApplicationDataType DataType => ApplicationDataType.Ledger;
-        public int LoadSequence => 50;
 
         public void Close()
         {
@@ -127,13 +127,13 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentNullException(nameof(applicationDatabase));
             }
 
-            LedgerBook = await this.ledgerRepository.LoadAsync(applicationDatabase.FullPath(applicationDatabase.LedgerBookStorageKey));
+            LedgerBook = await this.ledgerRepository.LoadAsync(applicationDatabase.FullPath(applicationDatabase.LedgerBookStorageKey), applicationDatabase.IsEncrypted);
 
-            this.monitorableDependencies.NotifyOfDependencyChange<LedgerBook>(LedgerBook);
+            this.monitorableDependencies.NotifyOfDependencyChange(LedgerBook);
             NewDataSourceAvailable?.Invoke(this, EventArgs.Empty);
         }
 
-        public async Task SaveAsync(IReadOnlyDictionary<ApplicationDataType, object> contextObjects)
+        public async Task SaveAsync(ApplicationDatabase applicationDatabase)
         {
             Saving?.Invoke(this, new AdditionalInformationRequestedEventArgs());
 
@@ -143,12 +143,12 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ValidationWarningException("Ledger Book is invalid, cannot save at this time:\n" + messages);
             }
 
-            await this.ledgerRepository.SaveAsync(LedgerBook, LedgerBook.StorageKey);
-            this.monitorableDependencies.NotifyOfDependencyChange<LedgerBook>(LedgerBook);
+            await this.ledgerRepository.SaveAsync(LedgerBook, applicationDatabase.FullPath(applicationDatabase.LedgerBookStorageKey), applicationDatabase.IsEncrypted);
+            this.monitorableDependencies.NotifyOfDependencyChange(LedgerBook);
             Saved?.Invoke(this, EventArgs.Empty);
         }
 
-        public void SavePreview(IDictionary<ApplicationDataType, object> contextObjects)
+        public void SavePreview()
         {
         }
 

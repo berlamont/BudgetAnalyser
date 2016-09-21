@@ -31,7 +31,7 @@ namespace BudgetAnalyser.Engine.Ledger
         {
             var netAmount = transactions.Sum(t => t.Amount);
             var closingBalance = openingBalance + netAmount;
-            BudgetCreditLedgerTransaction budgetTransaction = transactions.OfType<BudgetCreditLedgerTransaction>().FirstOrDefault();
+            var budgetTransaction = transactions.OfType<BudgetCreditLedgerTransaction>().FirstOrDefault();
 
             if (budgetTransaction == null)
             {
@@ -65,20 +65,6 @@ namespace BudgetAnalyser.Engine.Ledger
                     transactions.AddIfSomething(RemoveExcessToBudgetAmount(closingBalance, reconciliationDate, budgetTransaction.Amount));
                 }
             }
-        }
-
-        private LedgerTransaction SupplementToOpeningBalance(decimal closingBalance, DateTime reconciliationDate, decimal openingBalance)
-        {
-            if (openingBalance - closingBalance == 0)
-            {
-                return null;
-            }
-            return new CreditLedgerTransaction
-            {
-                Amount = openingBalance - closingBalance,
-                Date = reconciliationDate,
-                Narrative = SupplementLessThanOpeningBalance
-            };
         }
 
         /// <summary>
@@ -139,6 +125,20 @@ namespace BudgetAnalyser.Engine.Ledger
                 Amount = budgetAmount - closingBalance,
                 Date = reconciliationDate,
                 Narrative = SupplementLessThanBudgetText
+            };
+        }
+
+        private static LedgerTransaction SupplementToOpeningBalance(decimal closingBalance, DateTime reconciliationDate, decimal openingBalance)
+        {
+            if (openingBalance - closingBalance == 0)
+            {
+                return null;
+            }
+            return new CreditLedgerTransaction
+            {
+                Amount = openingBalance - closingBalance,
+                Date = reconciliationDate,
+                Narrative = SupplementLessThanOpeningBalance
             };
         }
 

@@ -42,7 +42,7 @@ namespace BudgetAnalyser.Engine.Services
         public TransactionManagerService(
             [NotNull] IBudgetBucketRepository bucketRepository,
             [NotNull] IStatementRepository statementRepository,
-            [NotNull] ILogger logger, 
+            [NotNull] ILogger logger,
             [NotNull] MonitorableDependencies monitorableDependencies)
         {
             if (bucketRepository == null)
@@ -66,127 +66,6 @@ namespace BudgetAnalyser.Engine.Services
             this.statementRepository = statementRepository;
             this.logger = logger;
             this.monitorableDependencies = monitorableDependencies;
-        }
-
-        /// <summary>
-        ///     Gets the type of the data the implementation deals with.
-        /// </summary>
-        public ApplicationDataType DataType => ApplicationDataType.Transactions;
-
-        /// <summary>
-        ///     Gets the initialisation sequence number. Set this to a low number for important data that needs to be loaded first.
-        /// </summary>
-        public int LoadSequence => 10;
-
-        /// <summary>
-        ///     Closes the currently loaded file.  No warnings will be raised if there is unsaved data.
-        /// </summary>
-        public void Close()
-        {
-            this.transactions = new ObservableCollection<Transaction>();
-            StatementModel?.Dispose();
-            StatementModel = null;
-            this.budgetCollection = null;
-            this.budgetHash = 0;
-            EventHandler handler = Closed;
-            handler?.Invoke(this, EventArgs.Empty);
-        }
-
-        /// <summary>
-        ///     Create a new <see cref="StatementModel" />.
-        /// </summary>
-        /// <exception cref="System.ArgumentNullException"></exception>
-        public async Task CreateAsync(ApplicationDatabase applicationDatabase)
-        {
-            if (applicationDatabase.StatementModelStorageKey.IsNothing())
-            {
-                throw new ArgumentNullException(nameof(applicationDatabase));
-            }
-
-            await this.statementRepository.CreateNewAndSaveAsync(applicationDatabase.StatementModelStorageKey);
-            await LoadAsync(applicationDatabase);
-        }
-
-        /// <summary>
-        ///     Loads a data source with the provided database reference data asynchronously.
-        /// </summary>
-        /// <exception cref="System.ArgumentNullException"></exception>
-        /// <exception cref="DataFormatException">Statement Model data is corrupt and has been tampered with. Unable to load.</exception>
-        public async Task LoadAsync(ApplicationDatabase applicationDatabase)
-        {
-            if (applicationDatabase == null)
-            {
-                throw new ArgumentNullException(nameof(applicationDatabase));
-            }
-
-            StatementModel?.Dispose();
-            try
-            {
-                StatementModel = await this.statementRepository.LoadAsync(applicationDatabase.FullPath(applicationDatabase.StatementModelStorageKey));
-            }
-            catch (StatementModelChecksumException ex)
-            {
-                throw new DataFormatException(
-                    "Statement Model data is corrupt and has been tampered with. Unable to load.", ex);
-            }
-
-            NewDataAvailable();
-        }
-
-        /// <summary>
-        ///     Saves the application database asynchronously. This may be called using a background worker thread.
-        /// </summary>
-        /// <param name="contextObjects">
-        ///     The optional context objects that may have been populated by implementations of the
-        ///     <see cref="SavePreview" /> method call.
-        /// </param>
-        /// <exception cref="ValidationWarningException">
-        ///     Unable to save transactions at this time, some data is invalid.  +
-        ///     messages
-        /// </exception>
-        public async Task SaveAsync(IReadOnlyDictionary<ApplicationDataType, object> contextObjects)
-        {
-            if (StatementModel == null)
-            {
-                return;
-            }
-
-            EventHandler<AdditionalInformationRequestedEventArgs> handler = Saving;
-            handler?.Invoke(this, new AdditionalInformationRequestedEventArgs());
-
-            var messages = new StringBuilder();
-            if (!ValidateModel(messages))
-            {
-                throw new ValidationWarningException(
-                    "Unable to save transactions at this time, some data is invalid. " + messages);
-            }
-
-            await this.statementRepository.SaveAsync(StatementModel);
-            this.monitorableDependencies.NotifyOfDependencyChange<StatementModel>(StatementModel);
-            Saved?.Invoke(this, EventArgs.Empty);
-        }
-
-        /// <summary>
-        ///     Called before Save is called. This will be called on the UI Thread.
-        ///     Objects can optionally add some context data that will be passed to the <see cref="SaveAsync" /> method call.
-        ///     This can be used to finalise any edits or prompt the user for closing data, ie, a "what-did-you-change" comment;
-        ///     this
-        ///     can't be done during save as it may not be called using the UI Thread.
-        /// </summary>
-        /// <param name="contextObjects">The optional context objects that can be populated by implementations.</param>
-        public void SavePreview(IDictionary<ApplicationDataType, object> contextObjects)
-        {
-        }
-
-        /// <summary>
-        ///     Validates the model owned by the service.
-        /// </summary>
-        public bool ValidateModel(StringBuilder messages)
-        {
-            Validating?.Invoke(this, new ValidatingEventArgs());
-
-            // In the case of the StatementModel all edits are validated and resolved during data edits. No need for an overall consistency check.
-            return true;
         }
 
         /// <summary>
@@ -232,6 +111,16 @@ namespace BudgetAnalyser.Engine.Services
                 return this.transactions.Where(t => t.Amount < 0).SafeAverage(t => t.Amount);
             }
         }
+
+        /// <summary>
+        ///     Gets the type of the data the implementation deals with.
+        /// </summary>
+        public ApplicationDataType DataType => ApplicationDataType.Transactions;
+
+        /// <summary>
+        ///     Gets the initialisation sequence number. Set this to a low number for important data that needs to be loaded first.
+        /// </summary>
+        public int LoadSequence => 10;
 
         /// <summary>
         ///     Gets the statement model.
@@ -284,6 +173,111 @@ namespace BudgetAnalyser.Engine.Services
 
                 return this.transactions.Where(t => t.Amount < 0).Sum(t => t.Amount);
             }
+        }
+
+        /// <summary>
+        ///     Closes the currently loaded file.  No warnings will be raised if there is unsaved data.
+        /// </summary>
+        public void Close()
+        {
+            this.transactions = new ObservableCollection<Transaction>();
+            StatementModel?.Dispose();
+            StatementModel = null;
+            this.budgetCollection = null;
+            this.budgetHash = 0;
+            var handler = Closed;
+            handler?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        ///     Create a new <see cref="StatementModel" />.
+        /// </summary>
+        /// <exception cref="System.ArgumentNullException"></exception>
+        public async Task CreateAsync(ApplicationDatabase applicationDatabase)
+        {
+            if (applicationDatabase.StatementModelStorageKey.IsNothing())
+            {
+                throw new ArgumentNullException(nameof(applicationDatabase));
+            }
+
+            await this.statementRepository.CreateNewAndSaveAsync(applicationDatabase.StatementModelStorageKey);
+            await LoadAsync(applicationDatabase);
+        }
+
+        /// <summary>
+        ///     Loads a data source with the provided database reference data asynchronously.
+        /// </summary>
+        /// <exception cref="System.ArgumentNullException"></exception>
+        /// <exception cref="DataFormatException">Statement Model data is corrupt and has been tampered with. Unable to load.</exception>
+        public async Task LoadAsync(ApplicationDatabase applicationDatabase)
+        {
+            if (applicationDatabase == null)
+            {
+                throw new ArgumentNullException(nameof(applicationDatabase));
+            }
+
+            StatementModel?.Dispose();
+            try
+            {
+                StatementModel = await this.statementRepository.LoadAsync(applicationDatabase.FullPath(applicationDatabase.StatementModelStorageKey), applicationDatabase.IsEncrypted);
+            }
+            catch (StatementModelChecksumException ex)
+            {
+                throw new DataFormatException("Statement Model data is corrupt and has been tampered with. Unable to load.", ex);
+            }
+
+            NewDataAvailable();
+        }
+
+        /// <summary>
+        ///     Saves the application database asynchronously. This may be called using a background worker thread.
+        /// </summary>
+        /// <exception cref="ValidationWarningException">
+        ///     Unable to save transactions at this time, some data is invalid.  +
+        ///     messages
+        /// </exception>
+        public async Task SaveAsync(ApplicationDatabase applicationDatabase)
+        {
+            if (StatementModel == null)
+            {
+                return;
+            }
+
+            EventHandler<AdditionalInformationRequestedEventArgs> handler = Saving;
+            handler?.Invoke(this, new AdditionalInformationRequestedEventArgs());
+
+            var messages = new StringBuilder();
+            if (!ValidateModel(messages))
+            {
+                throw new ValidationWarningException("Unable to save transactions at this time, some data is invalid. " + messages);
+            }
+
+            StatementModel.StorageKey = applicationDatabase.FullPath(applicationDatabase.StatementModelStorageKey);
+            await this.statementRepository.SaveAsync(StatementModel, applicationDatabase.IsEncrypted);
+            this.monitorableDependencies.NotifyOfDependencyChange(StatementModel);
+            Saved?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        ///     Called before Save is called. This will be called on the UI Thread.
+        ///     Objects can optionally add some context data that will be passed to the <see cref="SaveAsync" /> method call.
+        ///     This can be used to finalise any edits or prompt the user for closing data, ie, a "what-did-you-change" comment;
+        ///     this
+        ///     can't be done during save as it may not be called using the UI Thread.
+        /// </summary>
+        public void SavePreview()
+        {
+        }
+
+        /// <summary>
+        ///     Validates the model owned by the service.
+        /// </summary>
+        public bool ValidateModel(StringBuilder messages)
+        {
+            Validating?.Invoke(this, new ValidatingEventArgs());
+
+            // In the case of the StatementModel all edits are validated and resolved during data edits. No need for an overall consistency check.
+            return true;
         }
 
         /// <summary>
@@ -346,13 +340,10 @@ namespace BudgetAnalyser.Engine.Services
         {
             if (bucketCode == TransactionConstants.UncategorisedFilter)
             {
-                return
-                    this.transactions =
-                        new ObservableCollection<Transaction>(
-                            StatementModel.Transactions.Where(t => t.BudgetBucket == null));
+                return this.transactions = new ObservableCollection<Transaction>(StatementModel.Transactions.Where(t => t.BudgetBucket == null));
             }
 
-            BudgetBucket bucket = bucketCode == null ? null : this.bucketRepository.GetByCode(bucketCode);
+            var bucket = bucketCode == null ? null : this.bucketRepository.GetByCode(bucketCode);
 
             if (bucket == null)
             {
@@ -360,8 +351,7 @@ namespace BudgetAnalyser.Engine.Services
             }
 
             var paternityTest = new BudgetBucketPaternity();
-            return this.transactions = new ObservableCollection<Transaction>(
-                StatementModel.Transactions.Where(t => paternityTest.OfSameBucketFamily(t.BudgetBucket, bucket)));
+            return this.transactions = new ObservableCollection<Transaction>(StatementModel.Transactions.Where(t => paternityTest.OfSameBucketFamily(t.BudgetBucket, bucket)));
         }
 
         /// <summary>
@@ -399,7 +389,7 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentNullException(nameof(criteria));
             }
 
-            this.monitorableDependencies.NotifyOfDependencyChange<GlobalFilterCriteria>(criteria);
+            this.monitorableDependencies.NotifyOfDependencyChange(criteria);
             StatementModel.Filter(criteria);
         }
 
@@ -433,8 +423,8 @@ namespace BudgetAnalyser.Engine.Services
                     "There are no transactions loaded, you must first load an existing file or create a new one.");
             }
 
-            StatementModel additionalModel = await this.statementRepository.ImportBankStatementAsync(storageKey, account);
-            StatementModel combinedModel = StatementModel.Merge(additionalModel);
+            var additionalModel = await this.statementRepository.ImportBankStatementAsync(storageKey, account);
+            var combinedModel = StatementModel.Merge(additionalModel);
             IEnumerable<IGrouping<int, Transaction>> duplicates = combinedModel.ValidateAgainstDuplicates();
             if (duplicates.Count() == additionalModel.AllTransactions.Count())
             {
@@ -600,10 +590,7 @@ namespace BudgetAnalyser.Engine.Services
                                 if (!bucketExists)
                                 {
                                     t.BudgetBucket = null;
-                                    this.logger.LogWarning(
-                                        l =>
-                                            l.Format("Transaction {0} has a bucket ({1}) that doesn't exist!", t.Date,
-                                                t.BudgetBucket));
+                                    this.logger.LogWarning(l => l.Format("Transaction {0} has a bucket ({1}) that doesn't exist!", t.Date, t.BudgetBucket));
                                 }
                                 return bucketExists;
                             });
@@ -653,7 +640,7 @@ namespace BudgetAnalyser.Engine.Services
         private void NewDataAvailable()
         {
             ResetTransactionsCollection();
-            this.monitorableDependencies.NotifyOfDependencyChange<StatementModel>(StatementModel);
+            this.monitorableDependencies.NotifyOfDependencyChange(StatementModel);
             NewDataSourceAvailable?.Invoke(this, EventArgs.Empty);
         }
 

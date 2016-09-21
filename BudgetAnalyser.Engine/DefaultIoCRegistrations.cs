@@ -12,6 +12,28 @@ namespace BudgetAnalyser.Engine
     public static class DefaultIoCRegistrations
     {
         /// <summary>
+        ///     Gets a named instance from all the given instances.
+        ///     This is used to find an instance of an interface with a specific name.
+        /// </summary>
+        /// <typeparam name="T">Any interface or abstract class</typeparam>
+        /// <returns>The found named instance, or null if no instance matches the name.</returns>
+        public static T GetNamedInstance<T>([NotNull] IEnumerable<T> instances, string name) where T : class
+        {
+            if (instances == null) throw new ArgumentNullException(nameof(instances));
+            foreach (var instance in instances)
+            {
+                IEnumerable<AutoRegisterWithIoCAttribute> attributes = instance.GetType().GetTypeInfo().GetCustomAttributes<AutoRegisterWithIoCAttribute>();
+                var attribute = attributes.FirstOrDefault();
+                if (attribute != null)
+                {
+                    if (attribute.Named == name) return instance;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         ///     Enumerates through all static types in the given assembly and finds static properties decorated with
         ///     <see cref="PropertyInjectionAttribute" />.
         ///     DO NOT USE THIS. Except as a last resort, property injection is a bad pattern, but is sometimes required for UI
@@ -28,13 +50,13 @@ namespace BudgetAnalyser.Engine
             Type[] allTypes = assembly.GetTypes()
                 .Where(t =>
                 {
-                    TypeInfo typeInfo = t.GetTypeInfo();
+                    var typeInfo = t.GetTypeInfo();
                     return typeInfo.IsClass && typeInfo.IsAbstract && typeInfo.IsSealed && typeInfo.GetCustomAttribute<AutoRegisterWithIoCAttribute>() != null;
                 })
                 .ToArray();
-            foreach (Type type in allTypes)
+            foreach (var type in allTypes)
             {
-                foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Static))
+                foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Static))
                 {
                     var injectionAttribute = property.GetCustomAttribute<PropertyInjectionAttribute>();
                     if (injectionAttribute != null)
@@ -65,7 +87,7 @@ namespace BudgetAnalyser.Engine
             Type[] allTypes = assembly.GetTypes()
                 .Where(t =>
                 {
-                    TypeInfo typeInfo = t.GetTypeInfo();
+                    var typeInfo = t.GetTypeInfo();
                     return !typeInfo.IsAbstract && typeInfo.IsClass && typeInfo.GetCustomAttribute<AutoRegisterWithIoCAttribute>() != null;
                 })
                 .ToArray();

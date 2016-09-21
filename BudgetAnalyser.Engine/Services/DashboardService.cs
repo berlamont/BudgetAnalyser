@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using BudgetAnalyser.Engine.BankAccount;
 using BudgetAnalyser.Engine.Budget;
 using BudgetAnalyser.Engine.Widgets;
 using JetBrains.Annotations;
@@ -15,31 +14,22 @@ namespace BudgetAnalyser.Engine.Services
     [AutoRegisterWithIoC(SingleInstance = true)]
     internal class DashboardService : IDashboardService
     {
-        private readonly IAccountTypeRepository accountTypeRepository;
         private readonly IBudgetBucketRepository bucketRepository;
         private readonly IBudgetRepository budgetRepository;
         private readonly ILogger logger;
-        private readonly IWidgetRepository widgetRepository;
-        private readonly IWidgetService widgetService;
         private readonly MonitorableDependencies monitoringServices;
-        
+        private readonly IWidgetService widgetService;
+
         public DashboardService(
             [NotNull] IWidgetService widgetService,
-            [NotNull] IWidgetRepository widgetRepository,
             [NotNull] IBudgetBucketRepository bucketRepository,
             [NotNull] IBudgetRepository budgetRepository,
-            [NotNull] IAccountTypeRepository accountTypeRepository,
-            [NotNull] ILogger logger, 
+            [NotNull] ILogger logger,
             [NotNull] MonitorableDependencies monitorableDependencies)
         {
             if (widgetService == null)
             {
                 throw new ArgumentNullException(nameof(widgetService));
-            }
-
-            if (widgetRepository == null)
-            {
-                throw new ArgumentNullException(nameof(widgetRepository));
             }
 
             if (bucketRepository == null)
@@ -52,11 +42,6 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentNullException(nameof(budgetRepository));
             }
 
-            if (accountTypeRepository == null)
-            {
-                throw new ArgumentNullException(nameof(accountTypeRepository));
-            }
-
             if (logger == null)
             {
                 throw new ArgumentNullException(nameof(logger));
@@ -64,18 +49,11 @@ namespace BudgetAnalyser.Engine.Services
             if (monitorableDependencies == null) throw new ArgumentNullException(nameof(monitorableDependencies));
 
             this.widgetService = widgetService;
-            this.widgetRepository = widgetRepository;
             this.bucketRepository = bucketRepository;
             this.budgetRepository = budgetRepository;
-            this.accountTypeRepository = accountTypeRepository;
             this.logger = logger;
             this.monitoringServices = monitorableDependencies;
             this.monitoringServices.DependencyChanged += OnMonitoringServicesDependencyChanged;
-        }
-
-        private void OnMonitoringServicesDependencyChanged(object sender, DependencyChangedEventArgs dependencyChangedEventArgs)
-        {
-            UpdateAllWidgets(new[] { dependencyChangedEventArgs.DependencyType });
         }
 
         protected ObservableCollection<WidgetGroup> WidgetGroups { get; private set; }
@@ -100,7 +78,7 @@ namespace BudgetAnalyser.Engine.Services
                 return null;
             }
 
-            IUserDefinedWidget widget = this.widgetRepository.Create(typeof(BudgetBucketMonitorWidget).FullName, bucketCode);
+            var widget = this.widgetService.Create(typeof(BudgetBucketMonitorWidget).FullName, bucketCode);
             return UpdateWidgetCollectionWithNewAddition((Widget) widget);
         }
 
@@ -121,9 +99,9 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentException("Fixed Budget amount must be greater than zero.", nameof(fixedBudgetAmount));
             }
 
-            FixedBudgetProjectBucket bucket = this.bucketRepository.CreateNewFixedBudgetProject(bucketCode, description, fixedBudgetAmount);
+            var bucket = this.bucketRepository.CreateNewFixedBudgetProject(bucketCode, description, fixedBudgetAmount);
             this.budgetRepository.SaveAsync();
-            IUserDefinedWidget widget = this.widgetRepository.Create(typeof(FixedBudgetMonitorWidget).FullName, bucket.Code);
+            var widget = this.widgetService.Create(typeof(FixedBudgetMonitorWidget).FullName, bucket.Code);
             return UpdateWidgetCollectionWithNewAddition((Widget) widget);
         }
 
@@ -140,7 +118,7 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentException("Payment date is not set.", nameof(paymentDate));
             }
 
-            BudgetBucket bucket = this.bucketRepository.GetByCode(bucketCode);
+            var bucket = this.bucketRepository.GetByCode(bucketCode);
             if (bucket == null)
             {
                 throw new ArgumentException(
@@ -148,7 +126,7 @@ namespace BudgetAnalyser.Engine.Services
                     nameof(bucketCode));
             }
 
-            IUserDefinedWidget widget = this.widgetRepository.Create(typeof(SurprisePaymentWidget).FullName, bucket.Code);
+            var widget = this.widgetService.Create(typeof(SurprisePaymentWidget).FullName, bucket.Code);
             var paymentWidget = (SurprisePaymentWidget) widget;
             paymentWidget.StartPaymentDate = paymentDate;
             paymentWidget.Frequency = frequency;
@@ -157,7 +135,6 @@ namespace BudgetAnalyser.Engine.Services
 
         public ObservableCollection<WidgetGroup> LoadPersistedStateData(WidgetsApplicationState storedState)
         {
-            // TODO This used to accept a strongly typed state object for Dashboard state persistence.
             if (storedState == null)
             {
                 throw new ArgumentNullException(nameof(storedState));
@@ -165,9 +142,9 @@ namespace BudgetAnalyser.Engine.Services
 
             WidgetGroups = new ObservableCollection<WidgetGroup>(this.widgetService.PrepareWidgets(storedState.WidgetStates));
             UpdateAllWidgets();
-            foreach (WidgetGroup group in WidgetGroups)
+            foreach (var group in WidgetGroups)
             {
-                foreach (Widget widget in @group.Widgets.Where(widget => widget.RecommendedTimeIntervalUpdate != null))
+                foreach (var widget in @group.Widgets.Where(widget => widget.RecommendedTimeIntervalUpdate != null))
                 {
                     ScheduledWidgetUpdate(widget);
                 }
@@ -210,10 +187,10 @@ namespace BudgetAnalyser.Engine.Services
                 return;
             }
 
-            this.widgetRepository.Remove(widgetToRemove);
+            this.widgetService.Remove(widgetToRemove);
 
             var baseWidget = (Widget) widgetToRemove;
-            WidgetGroup widgetGroup = WidgetGroups.FirstOrDefault(group => group.Heading == baseWidget.Category);
+            var widgetGroup = WidgetGroups.FirstOrDefault(group => group.Heading == baseWidget.Category);
 
             widgetGroup?.Widgets.Remove(baseWidget);
         }
@@ -256,6 +233,11 @@ namespace BudgetAnalyser.Engine.Services
                 Visible = widget.Visibility,
                 WidgetType = widget.GetType().FullName
             };
+        }
+
+        private void OnMonitoringServicesDependencyChanged(object sender, DependencyChangedEventArgs dependencyChangedEventArgs)
+        {
+            UpdateAllWidgets(dependencyChangedEventArgs.DependencyType);
         }
 
         private async void ScheduledWidgetUpdate(Widget widget)
@@ -318,7 +300,7 @@ namespace BudgetAnalyser.Engine.Services
 
             var parameters = new object[widget.Dependencies.Count()];
             var index = 0;
-            foreach (Type dependencyType in widget.Dependencies)
+            foreach (var dependencyType in widget.Dependencies)
             {
                 try
                 {
@@ -341,7 +323,7 @@ namespace BudgetAnalyser.Engine.Services
 
         private Widget UpdateWidgetCollectionWithNewAddition(Widget baseWidget)
         {
-            WidgetGroup widgetGroup = WidgetGroups.FirstOrDefault(group => @group.Heading == baseWidget.Category);
+            var widgetGroup = WidgetGroups.FirstOrDefault(group => @group.Heading == baseWidget.Category);
             if (widgetGroup == null)
             {
                 widgetGroup = new WidgetGroup

@@ -27,7 +27,8 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DocumentationFile>bin\Debug\BudgetAnalyser.Engine.XML</DocumentationFile>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>..\CodeAnalysis.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -123,10 +124,25 @@
     <Compile Include="Budget\XamlOnDiskBudgetRepository.cs" />
     <Compile Include="DebugLogger.cs" />
     <Compile Include="DuplicateNameException.cs" />
+    <Compile Include="IReaderWriterSelector.cs" />
+    <Compile Include="Ledger\Data\MobileStorageSettingsDto.cs" />
+    <Compile Include="Mobile\IMobileDataExporter.cs" />
+    <Compile Include="Mobile\IMobileDataUploader.cs" />
+    <Compile Include="Mobile\MobileDataExporter.cs" />
+    <Compile Include="Mobile\MobileStorageSettings.cs" />
+    <Compile Include="Mobile\S3MobileDataUploader.cs" />
+    <Compile Include="Mobile\SummarisedLedgerBucket.cs" />
+    <Compile Include="Mobile\SummarisedLedgerMobileData.cs" />
     <Compile Include="Persistence\BadApplicationStateFileFormatException.cs" />
+    <Compile Include="Persistence\ICredentialStore.cs" />
+    <Compile Include="Persistence\IFileReaderWriter.cs" />
+    <Compile Include="Persistence\LocalDiskReaderWriter.cs" />
     <Compile Include="Services\DependencyChangedEventArgs.cs" />
+    <Compile Include="Services\EncryptionKeyIncorrectException.cs" />
+    <Compile Include="Services\EncryptionKeyNotProvidedException.cs" />
     <Compile Include="Services\MonitorableDependencies.cs" />
     <Compile Include="Services\TransactionConstants.cs" />
+    <Compile Include="TimeSpanExtension.cs" />
     <Compile Include="ToDo.cs" />
     <Compile Include="DataFormatException.cs" />
     <Compile Include="DateTimeExtension.cs" />
@@ -295,6 +311,8 @@
     <Compile Include="TaskExtension.cs" />
     <Compile Include="ValidationWarningException.cs" />
     <Compile Include="Widgets\BudgetBucketMonitorWidget.cs" />
+    <Compile Include="Widgets\UpdateMobileDataWidget.cs" />
+    <Compile Include="Widgets\EncryptWidget.cs" />
     <Compile Include="Widgets\CurrentFileWidget.cs" />
     <Compile Include="Widgets\DateFilterWidget.cs" />
     <Compile Include="Widgets\DaysSinceLastImport.cs" />
@@ -323,6 +341,12 @@
     <Compile Include="Widgets\WidgetsApplicationState.cs" />
     <Compile Include="Widgets\WidgetSize.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <CodeAnalysisDictionary Include="..\CodeAnalysisDictionary.xml">
+      <Link>CodeAnalysisDictionary.xml</Link>
+    </CodeAnalysisDictionary>
+  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

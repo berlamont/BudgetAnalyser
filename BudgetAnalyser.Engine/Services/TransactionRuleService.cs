@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -21,9 +20,11 @@ namespace BudgetAnalyser.Engine.Services
     internal class TransactionRuleService : ITransactionRuleService, ISupportsModelPersistence
     {
         private readonly IEnvironmentFolders environmentFolders;
-        private readonly MonitorableDependencies monitorableDependencies;
         private readonly ILogger logger;
+        private readonly List<MatchingRule> matchingRules;
+        private readonly List<RulesGroupedByBucket> matchingRulesGroupedByBucket;
         private readonly IMatchmaker matchmaker;
+        private readonly MonitorableDependencies monitorableDependencies;
         private readonly IMatchingRuleFactory ruleFactory;
         private readonly IMatchingRuleRepository ruleRepository;
         private string rulesStorageKey;
@@ -33,7 +34,7 @@ namespace BudgetAnalyser.Engine.Services
             [NotNull] ILogger logger,
             [NotNull] IMatchmaker matchmaker,
             [NotNull] IMatchingRuleFactory ruleFactory,
-            [NotNull] IEnvironmentFolders environmentFolders, 
+            [NotNull] IEnvironmentFolders environmentFolders,
             [NotNull] MonitorableDependencies monitorableDependencies)
         {
             if (ruleRepository == null)
@@ -65,19 +66,27 @@ namespace BudgetAnalyser.Engine.Services
             this.ruleFactory = ruleFactory;
             this.environmentFolders = environmentFolders;
             this.monitorableDependencies = monitorableDependencies;
-            MatchingRules = new ObservableCollection<MatchingRule>();
-            MatchingRulesGroupedByBucket = new ObservableCollection<RulesGroupedByBucket>();
+            this.matchingRules = new List<MatchingRule>();
+            this.matchingRulesGroupedByBucket = new List<RulesGroupedByBucket>();
         }
+
+        public event EventHandler Closed;
+        public event EventHandler NewDataSourceAvailable;
+        public event EventHandler Saved;
+        public event EventHandler<AdditionalInformationRequestedEventArgs> Saving;
+        public event EventHandler<ValidatingEventArgs> Validating;
 
         public ApplicationDataType DataType => ApplicationDataType.MatchingRules;
         public int LoadSequence => 50;
+        public IEnumerable<MatchingRule> MatchingRules => this.matchingRules;
+        public IEnumerable<RulesGroupedByBucket> MatchingRulesGroupedByBucket => this.matchingRulesGroupedByBucket;
 
         public void Close()
         {
             this.rulesStorageKey = null;
-            MatchingRulesGroupedByBucket.Clear();
-            MatchingRules.Clear();
-            EventHandler handler = Closed;
+            this.matchingRulesGroupedByBucket.Clear();
+            this.matchingRules.Clear();
+            var handler = Closed;
             handler?.Invoke(this, EventArgs.Empty);
         }
 
@@ -94,13 +103,13 @@ namespace BudgetAnalyser.Engine.Services
 
         public async Task LoadAsync(ApplicationDatabase applicationDatabase)
         {
-            MatchingRules.Clear();
-            MatchingRulesGroupedByBucket.Clear();
+            this.matchingRules.Clear();
+            this.matchingRulesGroupedByBucket.Clear();
             this.rulesStorageKey = applicationDatabase.FullPath(applicationDatabase.MatchingRulesCollectionStorageKey);
             List<MatchingRule> repoRules;
             try
             {
-                repoRules = (await this.ruleRepository.LoadAsync(this.rulesStorageKey))
+                repoRules = (await this.ruleRepository.LoadAsync(this.rulesStorageKey, applicationDatabase.IsEncrypted))
                     .OrderBy(r => r.Description)
                     .ToList();
             }
@@ -117,24 +126,24 @@ namespace BudgetAnalyser.Engine.Services
             NewDataSourceAvailable?.Invoke(this, EventArgs.Empty);
         }
 
-        public async Task SaveAsync(IReadOnlyDictionary<ApplicationDataType, object> contextObjects)
+        public async Task SaveAsync(ApplicationDatabase applicationDatabase)
         {
             var messages = new StringBuilder();
             if (ValidateModel(messages))
             {
-                await this.ruleRepository.SaveAsync(MatchingRules, this.rulesStorageKey);
+                // Prefer to use the file name from the applicationDatabase in case it has been changed upstream.
+                await this.ruleRepository.SaveAsync(MatchingRules, applicationDatabase.FullPath(applicationDatabase.MatchingRulesCollectionStorageKey), applicationDatabase.IsEncrypted);
             }
             else
             {
-                throw new ValidationWarningException(
-                    "Unable to save matching rules at this time, some data is invalid.\n" + messages);
+                throw new ValidationWarningException("Unable to save matching rules at this time, some data is invalid.\n" + messages);
             }
 
             this.monitorableDependencies.NotifyOfDependencyChange<ITransactionRuleService>(this);
             Saved?.Invoke(this, EventArgs.Empty);
         }
 
-        public void SavePreview(IDictionary<ApplicationDataType, object> contextObjects)
+        public void SavePreview()
         {
             EventHandler<AdditionalInformationRequestedEventArgs> handler = Saving;
             handler?.Invoke(this, new AdditionalInformationRequestedEventArgs());
@@ -147,19 +156,9 @@ namespace BudgetAnalyser.Engine.Services
             return true;
         }
 
-        public event EventHandler Closed;
-        public event EventHandler NewDataSourceAvailable;
-        public event EventHandler Saved;
-        public event EventHandler<AdditionalInformationRequestedEventArgs> Saving;
-        public event EventHandler<ValidatingEventArgs> Validating;
-        public ObservableCollection<MatchingRule> MatchingRules { get; }
-        public ObservableCollection<RulesGroupedByBucket> MatchingRulesGroupedByBucket { get; }
-
-        public MatchingRule CreateNewRule(string bucketCode, string description, string[] references,
-                                          string transactionTypeName, decimal? amount, bool andMatching)
+        public MatchingRule CreateNewRule(string bucketCode, string description, string[] references, string transactionTypeName, decimal? amount, bool andMatching)
         {
-            MatchingRule rule = this.ruleFactory.CreateNewRule(bucketCode, description, references, transactionTypeName, amount,
-                andMatching);
+            var rule = this.ruleFactory.CreateNewRule(bucketCode, description, references, transactionTypeName, amount, andMatching);
             AddRule(rule);
             return rule;
         }
@@ -167,7 +166,7 @@ namespace BudgetAnalyser.Engine.Services
         public SingleUseMatchingRule CreateNewSingleUseRule(string bucketCode, string description, string[] references,
                                                             string transactionTypeName, decimal? amount, bool andMatching)
         {
-            SingleUseMatchingRule rule = this.ruleFactory.CreateNewSingleUseRule(bucketCode, description, references, transactionTypeName,
+            var rule = this.ruleFactory.CreateNewSingleUseRule(bucketCode, description, references, transactionTypeName,
                 amount, andMatching);
             AddRule(rule);
             return rule;
@@ -219,7 +218,7 @@ namespace BudgetAnalyser.Engine.Services
         {
             var matchesMade = this.matchmaker.Match(transactions, MatchingRules);
             this.logger.LogInfo(l => "TransactionRuleService: Removing any SingleUseRules that have been used.");
-            foreach (SingleUseMatchingRule rule in MatchingRules.OfType<SingleUseMatchingRule>().ToList())
+            foreach (var rule in MatchingRules.OfType<SingleUseMatchingRule>().ToList())
             {
                 if (rule.MatchCount > 0)
                 {
@@ -242,15 +241,15 @@ namespace BudgetAnalyser.Engine.Services
                     "Unable to remove a matching rule at this time, the service has not yet loaded a matching rule set.");
             }
 
-            RulesGroupedByBucket existingGroup = MatchingRulesGroupedByBucket.FirstOrDefault(g => g.Bucket == ruleToRemove.Bucket);
+            var existingGroup = MatchingRulesGroupedByBucket.FirstOrDefault(g => g.Bucket == ruleToRemove.Bucket);
             if (existingGroup == null)
             {
                 return false;
             }
 
             var success1 = existingGroup.Rules.Remove(ruleToRemove);
-            var success2 = MatchingRules.Remove(ruleToRemove);
-            MatchingRule removedRule = ruleToRemove;
+            var success2 = this.matchingRules.Remove(ruleToRemove);
+            var removedRule = ruleToRemove;
 
             this.logger.LogInfo(_ => "Matching Rule is being Removed: " + removedRule);
             if (!success1)
@@ -280,36 +279,43 @@ namespace BudgetAnalyser.Engine.Services
             {
                 throw new ArgumentNullException(nameof(ruleToAdd));
             }
+
             if (string.IsNullOrWhiteSpace(this.rulesStorageKey))
             {
-                throw new InvalidOperationException(
-                    "Unable to add a matching rule at this time, the service has not yet loaded a matching rule set.");
+                throw new InvalidOperationException("Unable to add a matching rule at this time, the service has not yet loaded a matching rule set.");
             }
 
-            RulesGroupedByBucket existingGroup = MatchingRulesGroupedByBucket.FirstOrDefault(group => group.Bucket == ruleToAdd.Bucket);
+            // Make sure no rule already exists with this id:
+            if (MatchingRules.Any(r => r.RuleId == ruleToAdd.RuleId))
+            {
+                throw new DuplicateNameException($"Unable to add new matching rule: Rule ID {ruleToAdd.RuleId} already exists in the collection.");
+            }
+
+            // Check to see if an existing group object for the desired bucket already exists.
+            var existingGroup = MatchingRulesGroupedByBucket.FirstOrDefault(group => group.Bucket == ruleToAdd.Bucket);
             if (existingGroup == null)
             {
+                // Create a new group object for this bucket.
                 var addNewGroup = new RulesGroupedByBucket(ruleToAdd.Bucket, new[] { ruleToAdd });
-                MatchingRulesGroupedByBucket.Add(addNewGroup);
-                MatchingRules.Add(ruleToAdd);
+                this.matchingRulesGroupedByBucket.Add(addNewGroup);
+                this.matchingRules.Add(ruleToAdd);
             }
             else
             {
+                // Add to existing group object.
                 if (existingGroup.Rules.Contains(ruleToAdd))
                 {
-                    this.logger.LogWarning(
-                        l => "Attempt to add new rule failed. Rule already exists in Grouped collection. " + ruleToAdd);
+                    this.logger.LogWarning(l => "Attempt to add new rule failed. Rule already exists in Grouped collection. " + ruleToAdd);
                     return;
                 }
                 existingGroup.Rules.Add(ruleToAdd);
                 if (MatchingRules.Contains(ruleToAdd))
                 {
-                    this.logger.LogWarning(
-                        l => "Attempt to add new rule failed. Rule already exists in main collection. " + ruleToAdd);
+                    this.logger.LogWarning(l => "Attempt to add new rule failed. Rule already exists in main collection. " + ruleToAdd);
                     return;
                 }
 
-                MatchingRules.Add(ruleToAdd);
+                this.matchingRules.Add(ruleToAdd);
             }
 
             this.logger.LogInfo(_ => "Matching Rule Added: " + ruleToAdd);
@@ -317,10 +323,7 @@ namespace BudgetAnalyser.Engine.Services
 
         private void InitialiseTheRulesCollections(List<MatchingRule> repoRules)
         {
-            foreach (MatchingRule rule in repoRules)
-            {
-                MatchingRules.Add(rule);
-            }
+            this.matchingRules.AddRange(repoRules);
 
             IEnumerable<RulesGroupedByBucket> grouped = repoRules.GroupBy(rule => rule.Bucket)
                 .Where(group => @group.Key != null)
@@ -328,10 +331,7 @@ namespace BudgetAnalyser.Engine.Services
                 .Select(group => new RulesGroupedByBucket(@group.Key, @group))
                 .OrderBy(group => @group.Bucket.Code);
 
-            foreach (RulesGroupedByBucket groupedByBucket in grouped)
-            {
-                MatchingRulesGroupedByBucket.Add(groupedByBucket);
-            }
+            this.matchingRulesGroupedByBucket.AddRange(grouped);
         }
 
         private static void IsSimilarRulePreconditions(SimilarMatchedRule rule, DecimalCriteria amount,

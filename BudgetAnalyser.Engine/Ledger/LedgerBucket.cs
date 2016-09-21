@@ -42,9 +42,19 @@ namespace BudgetAnalyser.Engine.Ledger
         }
 
         /// <summary>
+        ///     A unique token to identify the bucket when using the code is not appropriate.
+        /// </summary>
+        public Guid Id { get; internal set; }
+
+        /// <summary>
         ///     Gets or sets the Account in which this ledger's funds are stored.
         /// </summary>
         public Account StoredInAccount { get; internal set; }
+
+        /// <summary>
+        ///     Allows ledger bucket specific behaviour during reconciliation.
+        /// </summary>
+        public abstract void ApplyReconciliationBehaviour([NotNull] IList<LedgerTransaction> transactions, DateTime reconciliationDate, decimal openingBalance);
 
         /// <summary>
         ///     Determines whether the specified <see cref="System.Object" />, is equal to this instance.
@@ -102,11 +112,6 @@ namespace BudgetAnalyser.Engine.Ledger
         {
             return !Equals(left, right);
         }
-
-        /// <summary>
-        ///     Allows ledger bucket specific behaviour during reconciliation.
-        /// </summary>
-        public abstract void ApplyReconciliationBehaviour([NotNull] IList<LedgerTransaction> transactions, DateTime reconciliationDate, decimal openingBalance);
 
         /// <summary>
         ///     Returns a string that represents the current object.

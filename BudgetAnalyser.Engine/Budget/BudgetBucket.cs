@@ -53,6 +53,11 @@ namespace BudgetAnalyser.Engine.Budget
         }
 
         /// <summary>
+        ///     Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
         ///     Gets or sets a value indicating whether this <see cref="BudgetBucket" /> is active.
         ///     If Inactive the Bucket will not be used in auto-matching nor available for manual transation matching.
         /// </summary>
@@ -168,11 +173,6 @@ namespace BudgetAnalyser.Engine.Budget
 
             return retval;
         }
-
-        /// <summary>
-        ///     Occurs when a property value changes.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
 
         /// <summary>
         ///     Determines whether the specified <see cref="System.Object" />, is equal to this instance.
@@ -294,7 +294,7 @@ namespace BudgetAnalyser.Engine.Budget
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }

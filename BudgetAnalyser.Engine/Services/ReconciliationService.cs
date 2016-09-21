@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,6 +25,17 @@ namespace BudgetAnalyser.Engine.Services
 
             this.reconciliationManager = reconciliationManager;
         }
+
+        /// <summary>
+        ///     Gets the type of the data the implementation deals with.
+        /// </summary>
+        public ApplicationDataType DataType => ApplicationDataType.Ledger;
+
+        /// <summary>
+        ///     Gets the initialisation sequence number. Set this to a low number for important data that needs to be loaded first.
+        ///     Defaults to 50.
+        /// </summary>
+        public int LoadSequence => 51;
 
         /// <summary>
         ///     The To Do List loaded from a persistent storage.
@@ -71,7 +81,7 @@ namespace BudgetAnalyser.Engine.Services
                 throw new ArgumentNullException(nameof(account));
             }
 
-            BankBalanceAdjustmentTransaction adjustmentTransaction = entryLine.BalanceAdjustment(amount, narrative, account);
+            var adjustmentTransaction = entryLine.BalanceAdjustment(amount, narrative, account);
             adjustmentTransaction.Date = entryLine.Date;
             return adjustmentTransaction;
         }
@@ -109,7 +119,7 @@ namespace BudgetAnalyser.Engine.Services
             bool ignoreWarnings,
             params BankBalance[] balances)
         {
-            ReconciliationResult reconResult = this.reconciliationManager.MonthEndReconciliation(ledgerBook, reconciliationDate,
+            var reconResult = this.reconciliationManager.MonthEndReconciliation(ledgerBook, reconciliationDate,
                 budgetContext, statement, ignoreWarnings, balances);
             ReconciliationToDoList.Clear();
             reconResult.Tasks.ToList().ForEach(ReconciliationToDoList.Add);
@@ -173,17 +183,6 @@ namespace BudgetAnalyser.Engine.Services
         }
 
         /// <summary>
-        ///     Gets the type of the data the implementation deals with.
-        /// </summary>
-        public ApplicationDataType DataType => ApplicationDataType.Ledger;
-
-        /// <summary>
-        ///     Gets the initialisation sequence number. Set this to a low number for important data that needs to be loaded first.
-        ///     Defaults to 50.
-        /// </summary>
-        public int LoadSequence => 51;
-
-        /// <summary>
         ///     Closes the currently loaded file.  No warnings will be raised if there is unsaved data.
         /// </summary>
         public void Close()
@@ -218,11 +217,7 @@ namespace BudgetAnalyser.Engine.Services
         /// <summary>
         ///     Saves the application database asynchronously. This may be called using a background worker thread.
         /// </summary>
-        /// <param name="contextObjects">
-        ///     The optional context objects that may have been populated by implementations of the
-        ///     <see cref="ISupportsModelPersistence.SavePreview" /> method call.
-        /// </param>
-        public Task SaveAsync(IReadOnlyDictionary<ApplicationDataType, object> contextObjects)
+        public Task SaveAsync(ApplicationDatabase applicationDatabase)
         {
             // Nothing needs to be done here.
             return Task.CompletedTask;
@@ -236,8 +231,7 @@ namespace BudgetAnalyser.Engine.Services
         ///     this
         ///     can't be done during save as it may not be called using the UI Thread.
         /// </summary>
-        /// <param name="contextObjects">The optional context objects that can be populated by implementations.</param>
-        public void SavePreview(IDictionary<ApplicationDataType, object> contextObjects)
+        public void SavePreview()
         {
         }
 

@@ -17,7 +17,7 @@ namespace BudgetAnalyser.Engine.Services
         private readonly BurnDownChartsBuilder chartsBuilder;
 
         public BurnDownChartsService([NotNull] IBudgetBucketRepository bucketRepository,
-                                     [NotNull] BurnDownChartsBuilder chartsBuilder, 
+                                     [NotNull] BurnDownChartsBuilder chartsBuilder,
                                      [NotNull] IBurnDownChartAnalyser chartAnalyser)
         {
             if (bucketRepository == null)
@@ -46,11 +46,12 @@ namespace BudgetAnalyser.Engine.Services
         }
 
         public BurnDownCharts BuildAllCharts(
-            StatementModel statementModel, 
+            StatementModel statementModel,
             BudgetModel budgetModel,
             LedgerBook ledgerBookModel, 
             GlobalFilterCriteria criteria)
         {
+            if (criteria == null) throw new ArgumentNullException(nameof(criteria));
             if (criteria.Cleared) throw new ArgumentException("There is no date range criteria set. This graph is intended for one month of data.");
             if (criteria.EndDate == null || criteria.BeginDate == null)
             {
@@ -73,7 +74,7 @@ namespace BudgetAnalyser.Engine.Services
             string chartTitle)
         {
             List<BudgetBucket> bucketsList = buckets.ToList();
-            BurnDownChartAnalyserResult result = this.chartAnalyser.Analyse(statementModel, budgetModel, bucketsList, ledgerBookModel, beginDate);
+            var result = this.chartAnalyser.Analyse(statementModel, budgetModel, bucketsList, ledgerBookModel, beginDate);
             result.ChartTitle = chartTitle;
             var persistChart = new CustomAggregateBurnDownGraph
             {
@@ -107,7 +108,7 @@ namespace BudgetAnalyser.Engine.Services
         public void RemoveCustomChart(string chartName)
         {
             List<CustomAggregateBurnDownGraph> customCharts = this.chartsBuilder.CustomCharts.ToList();
-            CustomAggregateBurnDownGraph chart = customCharts.FirstOrDefault(c => c.Name == chartName);
+            var chart = customCharts.FirstOrDefault(c => c.Name == chartName);
             customCharts.Remove(chart);
             this.chartsBuilder.CustomCharts = customCharts;
         }

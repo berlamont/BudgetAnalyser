@@ -39,6 +39,11 @@ namespace BudgetAnalyser.Engine.Statement
         }
 
         /// <summary>
+        ///     Occurs when a property value changes.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
         ///     Gets or sets the bank account that this transaction belongs in.
         /// </summary>
         public Account Account
@@ -214,11 +219,6 @@ namespace BudgetAnalyser.Engine.Statement
         }
 
         /// <summary>
-        ///     Occurs when a property value changes.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        /// <summary>
         ///     Get a hash code that will indicate value based equivalence with another instance of <see cref="Transaction" />.
         ///     <see cref="Object.GetHashCode" /> cannot be used because it is intended to show instance reference equivalence. It
         ///     will give a different value (and it should) for every instance. If overriden changing hashcodes will cause problems
@@ -285,7 +285,7 @@ namespace BudgetAnalyser.Engine.Statement
 
         private void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             handler?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
